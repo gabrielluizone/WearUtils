@@ -5,7 +5,7 @@ android {
     namespace = "com.matejdro.wearutils"
 
     defaultConfig {
-        compileSdk 35
+        compileSdk = 36
         minSdkVersion 18
         targetSdkVersion 30
         versionCode 1
