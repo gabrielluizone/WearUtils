@@ -1,40 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.wear.widget.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                                              xmlns:app="http://schemas.android.com/apk/res-auto"
-              android:orientation="vertical"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
 
-    <FrameLayout
+    <androidx.wear.widget.BoxInsetLayout
         android:id="@+id/no_phone_error_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:boxedEdges="all"
-        android:layout_marginTop="10dp">
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:layout_gravity="top|center_horizontal"
-            style="@style/TextAppearance.AppCompat.Headline"
-            android:text="@string/no_phone_app_description"/>
+        android:layout_margin="18dp">
 
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/no_phone_app_button"
-            android:layout_gravity="bottom|center_horizontal"
-            android:onClick="openPhonePlayStore"/>
-    </FrameLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            app:boxedEdges="all">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/google_sans"
+                android:gravity="center"
+                android:text="@string/no_phone_app_description"
+                android:textColor="@android:color/white"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/notice_button_background"
+                android:fontFamily="@font/google_sans"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:onClick="openGithub"
+                android:paddingLeft="20dp"
+                android:paddingTop="10dp"
+                android:paddingRight="20dp"
+                android:paddingBottom="10dp"
+                android:text="@string/no_phone_app_button"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white" />
+
+        </LinearLayout>
+
+    </androidx.wear.widget.BoxInsetLayout>
 
     <ProgressBar
         android:id="@+id/progress"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:layout_gravity="center"
-        android:visibility="gone"
         android:indeterminate="true"
+        android:indeterminateTint="@color/notice_accent"
         android:indeterminateOnly="true"
-        />
+        android:visibility="gone" />
 
-</androidx.wear.widget.BoxInsetLayout>
+</FrameLayout>

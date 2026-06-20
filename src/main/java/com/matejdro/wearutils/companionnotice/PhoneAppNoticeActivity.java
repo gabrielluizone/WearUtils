@@ -27,10 +27,10 @@ public class PhoneAppNoticeActivity extends Activity {
         loadingView = findViewById(R.id.progress);
     }
 
-    public void openPhonePlayStore(View view) {
-        Intent playStoreIntent = new Intent(Intent.ACTION_VIEW);
-        playStoreIntent.addCategory(Intent.CATEGORY_BROWSABLE);
-        playStoreIntent.setData(Uri.parse("market://details?id=" + getPackageName()));
+    public void openGithub(View view) {
+        Intent githubIntent = new Intent(Intent.ACTION_VIEW);
+        githubIntent.addCategory(Intent.CATEGORY_BROWSABLE);
+        githubIntent.setData(Uri.parse(getString(R.string.no_phone_app_github_url)));
 
         ResultReceiver resultReceiver = new ResultReceiver(new Handler()) {
             @Override
@@ -41,12 +41,12 @@ public class PhoneAppNoticeActivity extends Activity {
                     confirmationIntent.putExtra(ConfirmationActivity.EXTRA_ANIMATION_TYPE,
                             ConfirmationActivity.OPEN_ON_PHONE_ANIMATION);
                     confirmationIntent.putExtra(ConfirmationActivity.EXTRA_MESSAGE,
-                            getString(R.string.play_store_opened));
+                            getString(R.string.github_page_opened));
                 } else {
                     confirmationIntent.putExtra(ConfirmationActivity.EXTRA_ANIMATION_TYPE,
                             ConfirmationActivity.FAILURE_ANIMATION);
                     confirmationIntent.putExtra(ConfirmationActivity.EXTRA_MESSAGE,
-                            getString(R.string.play_store_opening_failed)
+                            getString(R.string.github_page_opening_failed)
                     );
 
                 }
@@ -60,7 +60,7 @@ public class PhoneAppNoticeActivity extends Activity {
             }
         };
 
-        RemoteIntent.startRemoteActivity(this, playStoreIntent, resultReceiver);
+        RemoteIntent.startRemoteActivity(this, githubIntent, resultReceiver);
 
         noPhoneErrorView.setVisibility(View.GONE);
         loadingView.setVisibility(View.VISIBLE);
