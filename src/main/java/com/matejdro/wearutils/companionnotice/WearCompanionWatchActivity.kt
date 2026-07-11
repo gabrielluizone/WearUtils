@@ -9,6 +9,7 @@ import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import timber.log.Timber
 
 abstract class WearCompanionWatchActivity : AppCompatActivity() {
     companion object {
@@ -23,13 +24,23 @@ abstract class WearCompanionWatchActivity : AppCompatActivity() {
             val capabilityClient = Wearable.getCapabilityClient(this@WearCompanionWatchActivity)
 
             var installedOnWatch = false
+            var gotDefinitiveAnswer = false
             for (attempt in 1..CAPABILITY_CHECK_ATTEMPTS) {
-                val matchingCapabilities = capabilityClient.getCapability(
-                    getPhoneAppPresenceCapability(),
-                    CapabilityClient.FILTER_ALL
-                ).await()
+                try {
+                    val matchingCapabilities = capabilityClient.getCapability(
+                        getPhoneAppPresenceCapability(),
+                        CapabilityClient.FILTER_ALL
+                    ).await()
 
-                installedOnWatch = matchingCapabilities.nodes.isNotEmpty()
+                    gotDefinitiveAnswer = true
+                    installedOnWatch = matchingCapabilities.nodes.isNotEmpty()
+                } catch (e: Exception) {
+                    // Play Services can throw here (stale/updating Play Services, transient
+                    // Wearable API failures). This check exists purely to show an install
+                    // notice - it must never take the whole app down.
+                    Timber.w(e, "Phone app capability check failed (attempt %d)", attempt)
+                }
+
                 if (installedOnWatch || attempt == CAPABILITY_CHECK_ATTEMPTS) {
                     break
                 }
@@ -41,7 +52,12 @@ abstract class WearCompanionWatchActivity : AppCompatActivity() {
                 delay(CAPABILITY_CHECK_RETRY_DELAY_MS)
             }
 
-            onWatchAppInstalledResult(installedOnWatch)
+            // Only a *successful* lookup that came back empty means "phone app missing". If
+            // every attempt failed we simply don't know - let the app run rather than closing
+            // it into the install notice on a false positive.
+            if (gotDefinitiveAnswer) {
+                onWatchAppInstalledResult(installedOnWatch)
+            }
         }
     }
 
