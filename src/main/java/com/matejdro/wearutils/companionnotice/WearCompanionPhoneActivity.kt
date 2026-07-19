@@ -42,13 +42,22 @@ abstract class WearCompanionPhoneActivity : AppCompatActivity() {
             val capabilityClient = Wearable.getCapabilityClient(this@WearCompanionPhoneActivity)
 
             var installedOnWatch = false
+            var gotDefinitiveAnswer = false
             for (attempt in 1..CAPABILITY_CHECK_ATTEMPTS) {
-                val matchingCapabilities = capabilityClient.getCapability(
-                        getWatchAppPresenceCapability(),
-                        CapabilityClient.FILTER_ALL
-                ).await()
+                try {
+                    val matchingCapabilities = capabilityClient.getCapability(
+                            getWatchAppPresenceCapability(),
+                            CapabilityClient.FILTER_ALL
+                    ).await()
 
-                installedOnWatch = matchingCapabilities.nodes.isNotEmpty()
+                    gotDefinitiveAnswer = true
+                    installedOnWatch = matchingCapabilities.nodes.isNotEmpty()
+                } catch (e: Exception) {
+                    // Play Services can throw here (e.g. Wearable.API is not available on this device).
+                    // This check is purely a user convenience - it must never crash the app.
+                    Timber.w(e, "Watch app capability check failed (attempt %d)", attempt)
+                }
+
                 if (installedOnWatch || attempt == CAPABILITY_CHECK_ATTEMPTS) {
                     break
                 }
@@ -56,7 +65,9 @@ abstract class WearCompanionPhoneActivity : AppCompatActivity() {
                 delay(CAPABILITY_CHECK_RETRY_DELAY_MS)
             }
 
-            onWatchAppInstalledResult(installedOnWatch)
+            if (gotDefinitiveAnswer) {
+                onWatchAppInstalledResult(installedOnWatch)
+            }
         }
     }
 

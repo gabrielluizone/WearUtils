@@ -114,7 +114,9 @@ public class LogRetrievalTask extends AsyncTask<Void, Void, Boolean> {
         FileLogger.getInstance(context).deactivate();
 
         File logsFolder = FileLogger.getInstance(context).getLogsFolder();
-        targetFile = new File(logsFolder, "logs.log_zip");
+        // This is a regular Zip archive. The former private-looking `.log_zip` suffix made
+        // Android/email clients append another extension and exposed it as `logs.logs_zip`.
+        targetFile = new File(logsFolder, "logs.zip");
 
         ZipOutputStream zipOutputStream = null;
         try {
