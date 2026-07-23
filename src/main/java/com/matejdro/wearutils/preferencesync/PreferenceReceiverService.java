@@ -51,8 +51,20 @@ public abstract class PreferenceReceiverService extends WearableListenerService
     @Override
     public void onDataChanged(DataEventBuffer dataEventBuffer)
     {
-        SharedPreferences.Editor preferenceEditor = null;
-        Set<String> latestSyncedKeys = null;
+        // Play Services replays every buffered revision of a DataItem that changed while the watch
+        // was unreachable (asleep / out of range) - and delivers them across several onDataChanged
+        // callbacks, not one collapsed buffer. Applying each in turn re-committed the snapshot and
+        // re-fired onPreferencesCommitted for every intermediate state, so a burst of edits on the
+        // phone (e.g. hopping through themes) marched through each one on the watch one by one when
+        // it woke. Each snapshot is a *full* state carrying a monotonic SYNC_REVISION_KEY, so the
+        // newest is authoritative: gate on the persisted last-applied revision and apply only the
+        // highest revision newer than it, discarding the replayed older ones.
+        long lastRevision = getSharedPreferences(SYNC_STATE_PREFERENCES, MODE_PRIVATE)
+                .getLong(revisionStateKey(), Long.MIN_VALUE);
+
+        DataMap bestDataMap = null;
+        long bestRevision = lastRevision;
+        boolean bestHasRevision = false;
 
         for (DataEvent dataEvent : dataEventBuffer)
         {
@@ -64,31 +76,48 @@ public abstract class PreferenceReceiverService extends WearableListenerService
                 continue;
 
             DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
-            preferenceEditor = getDestinationPreferences();
-            latestSyncedKeys = readSyncedKeys(dataMap);
+            long revision = dataMap.getLong(PreferencePusher.SYNC_REVISION_KEY, Long.MIN_VALUE);
 
-            // Only remove keys that a previous phone snapshot declared as phone-owned. This keeps
-            // watch-local state intact while allowing a reset/remove on the phone to propagate.
-            Set<String> previouslySyncedKeys = getSharedPreferences(
-                    SYNC_STATE_PREFERENCES, MODE_PRIVATE)
-                    .getStringSet(preferencesPrefix, Collections.emptySet());
-            for (String oldKey : previouslySyncedKeys)
+            if (revision == Long.MIN_VALUE)
             {
-                if (!latestSyncedKeys.contains(oldKey))
-                    preferenceEditor.remove(oldKey);
+                // Legacy snapshot from before revisions existed: never gated, but it must not beat
+                // a real, newer revision present in the same buffer.
+                if (bestDataMap == null)
+                    bestDataMap = dataMap;
             }
-
-            for (String key : dataMap.keySet())
+            else if (revision > bestRevision)
             {
-                if (PreferencePusher.SYNC_REVISION_KEY.equals(key) ||
-                        PreferencePusher.SYNC_KEYS_KEY.equals(key))
-                    continue;
-                putIntoSharedPreferences(preferenceEditor, key, dataMap.get(key));
+                bestDataMap = dataMap;
+                bestRevision = revision;
+                bestHasRevision = true;
             }
         }
 
-        if (preferenceEditor == null || latestSyncedKeys == null)
+        if (bestDataMap == null)
+            // Nothing newer than what we already applied - the whole buffer was stale replay.
             return;
+
+        Set<String> latestSyncedKeys = readSyncedKeys(bestDataMap);
+        SharedPreferences.Editor preferenceEditor = getDestinationPreferences();
+
+        // Only remove keys that a previous phone snapshot declared as phone-owned. This keeps
+        // watch-local state intact while allowing a reset/remove on the phone to propagate.
+        Set<String> previouslySyncedKeys = getSharedPreferences(
+                SYNC_STATE_PREFERENCES, MODE_PRIVATE)
+                .getStringSet(preferencesPrefix, Collections.emptySet());
+        for (String oldKey : previouslySyncedKeys)
+        {
+            if (!latestSyncedKeys.contains(oldKey))
+                preferenceEditor.remove(oldKey);
+        }
+
+        for (String key : bestDataMap.keySet())
+        {
+            if (PreferencePusher.SYNC_REVISION_KEY.equals(key) ||
+                    PreferencePusher.SYNC_KEYS_KEY.equals(key))
+                continue;
+            putIntoSharedPreferences(preferenceEditor, key, bestDataMap.get(key));
+        }
 
         // WearableListenerService may be torn down immediately after this callback. commit()
         // makes the snapshot durable before we publish it to live UI observers.
@@ -98,13 +127,21 @@ public abstract class PreferenceReceiverService extends WearableListenerService
             return;
         }
 
-        boolean inventoryCommitted = getSharedPreferences(SYNC_STATE_PREFERENCES, MODE_PRIVATE)
+        SharedPreferences.Editor stateEditor = getSharedPreferences(SYNC_STATE_PREFERENCES, MODE_PRIVATE)
                 .edit()
-                .putStringSet(preferencesPrefix, new HashSet<>(latestSyncedKeys))
-                .commit();
-        if (!inventoryCommitted)
+                .putStringSet(preferencesPrefix, new HashSet<>(latestSyncedKeys));
+        if (bestHasRevision)
+            stateEditor.putLong(revisionStateKey(), bestRevision);
+        if (!stateEditor.commit())
             Log.w(TAG, "Could not commit preference sync inventory");
         onPreferencesCommitted();
+    }
+
+    /** State key holding the last-applied SYNC_REVISION_KEY, kept apart from the synced-key
+     *  inventory (which is stored under {@code preferencesPrefix} itself). */
+    private String revisionStateKey()
+    {
+        return preferencesPrefix + "::revision";
     }
 
     private static Set<String> readSyncedKeys(DataMap dataMap)
